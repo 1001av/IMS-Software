@@ -1,0 +1,22 @@
+[package]
+name = "pharma-inventory"
+version = "1.0.0"
+description = "Offline-first pharmacy inventory management"
+authors = ["Pharma Inventory"]
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2.0.0", features = [] }
+
+[dependencies]
+tauri = { version = "2.1.0", features = [] }
+tauri-plugin-sql = { version = "2.0.1", features = ["sqlite"] }
+tauri-plugin-fs = "2.0.1"
+tauri-plugin-dialog = "2.0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+ed25519-dalek = "2.1"
+base64 = "0.22"
+
+[features]
+custom-protocol = ["tauri/custom-protocol"]
