@@ -1,4 +1,7 @@
-// Pharma Inventory — Tauri backend entry point.
+// Prevents additional console window on Windows in release, DO NOT REMOVE!!
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
+// Multi-Product Desktop IMS — Tauri backend entry point.
 //
 // Designed for offline-first Windows operation:
 // 1. Embedded SQLite database via tauri-plugin-sql with WAL mode
@@ -94,6 +97,56 @@ fn restore_database_backup(app_handle: tauri::AppHandle, source_path: String) ->
     Ok(bytes)
 }
 
+#[tauri::command]
+fn read_database_base64(app_handle: tauri::AppHandle) -> Result<String, String> {
+    use base64::Engine;
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {e}"))?;
+    let db_path = app_dir.join("pharma.db");
+    if !db_path.exists() {
+        return Err("Database file does not exist yet".to_string());
+    }
+    let data = std::fs::read(&db_path)
+        .map_err(|e| format!("Failed to read database bytes: {e}"))?;
+    let encoded = base64::engine::general_purpose::STANDARD.encode(data);
+    Ok(encoded)
+}
+
+#[tauri::command]
+fn write_database_base64(app_handle: tauri::AppHandle, data_base64: String) -> Result<u64, String> {
+    use base64::Engine;
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| format!("Failed to get app data directory: {e}"))?;
+    let db_path = app_dir.join("pharma.db");
+
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(&data_base64)
+        .map_err(|e| format!("Failed to decode database payload: {e}"))?;
+
+    // Make safety backup of current db before overwriting
+    if db_path.exists() {
+        let pre_restore = app_dir.join("pharma.db.pre_restore.bak");
+        let _ = std::fs::copy(&db_path, pre_restore);
+    }
+
+    std::fs::write(&db_path, &decoded)
+        .map_err(|e| format!("Failed to write restored database: {e}"))?;
+
+    Ok(decoded.len() as u64)
+}
+
+#[tauri::command]
+fn set_window_title(app_handle: tauri::AppHandle, title: String) -> Result<(), String> {
+    if let Some(window) = app_handle.get_webview_window("main") {
+        let _ = window.set_title(&title);
+    }
+    Ok(())
+}
+
 fn main() {
     tauri::Builder::default()
         .plugin(
@@ -103,11 +156,15 @@ fn main() {
         )
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             get_database_info,
             export_database_backup,
-            restore_database_backup
+            restore_database_backup,
+            read_database_base64,
+            write_database_base64,
+            set_window_title
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Pharma Inventory");
+        .expect("error while running IMS application");
 }

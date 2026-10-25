@@ -178,7 +178,9 @@ export function InventoryPage() {
                     </div>
                     <p className="font-semibold text-ink">No {config.itemLabelPlural.toLowerCase()} found</p>
                     <p className="text-xs text-subink mt-1">
-                      {search ? `No items matched "${search}".` : "Your inventory list is empty. Add your first medicine to get started."}
+                      {search
+                        ? `No items matched "${search}".`
+                        : `Your inventory list is empty. Add your first ${config.itemLabel.toLowerCase()} to get started.`}
                     </p>
                   </td>
                 </tr>

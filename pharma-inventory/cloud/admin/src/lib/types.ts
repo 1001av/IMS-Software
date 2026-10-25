@@ -1,6 +1,14 @@
 export type BusinessType = "agro" | "pharma" | "kirana" | "general";
 
-export type SubscriptionStatus = "active" | "expiring_soon" | "expired";
+export type SubscriptionStatus = "active" | "expiring_soon" | "expired" | "pending_activation";
+
+export interface RegisteredDevice {
+  deviceId: string;
+  deviceName: string;
+  devicePrefix: string; // e.g. "A", "B"
+  registeredAt: string;
+  lastSeenAt: string;
+}
 
 export interface CustomerRecord {
   id: string;
@@ -8,6 +16,7 @@ export interface CustomerRecord {
   storeName: string;
   phone: string;
   email: string;
+  passwordHash?: string;
   city: string;
   businessType: BusinessType;
   planName: string;
@@ -16,7 +25,20 @@ export interface CustomerRecord {
   expiryDate: string; // YYYY-MM-DD
   subscriptionKey: string;
   status: SubscriptionStatus;
+  maxDevices: number; // Default 2 authorized computers
+  registeredDevices: RegisteredDevice[];
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface VaultSnapshotMetadata {
+  customerId: string;
+  version: number;
+  uploadedByDeviceId: string;
+  uploadedByDeviceName: string;
+  devicePrefix: string;
+  sizeBytes: number;
+  checksumSha256?: string;
   updatedAt: string;
 }
 
@@ -49,4 +71,13 @@ export interface GenerateKeyResponse {
   startDate: string;
   expiryDate: string;
   totalDays: number;
+}
+
+export interface ProductRelease {
+  version: string;
+  notes: string;
+  pub_date: string;
+  url: string;
+  signature?: string;
+  isDeployed: boolean;
 }

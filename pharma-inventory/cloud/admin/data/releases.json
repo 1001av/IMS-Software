@@ -1,0 +1,26 @@
+{
+  "agro": {
+    "version": "1.0.0",
+    "notes": "Agro Kendra IMS v1.0.0 - Production release.",
+    "pub_date": "2026-10-13T18:18:52.630Z",
+    "url": "https://github.com/1001av/IMS-Software/releases/download/v1.0.0/Agro-Kendra-IMS_1.0.0_x64-setup.nsis.zip",
+    "signature": "",
+    "isDeployed": false
+  },
+  "kirana": {
+    "version": "1.0.0",
+    "notes": "Kirana Store IMS v1.0.0 - Production release.",
+    "pub_date": "2026-10-13T18:18:52.630Z",
+    "url": "https://github.com/1001av/IMS-Software/releases/download/v1.0.0/Kirana-Store-IMS_1.0.0_x64-setup.nsis.zip",
+    "signature": "",
+    "isDeployed": false
+  },
+  "pharma": {
+    "version": "1.0.0",
+    "notes": "Pharma IMS v1.0.0 - Production release.",
+    "pub_date": "2026-10-13T18:18:52.630Z",
+    "url": "https://github.com/1001av/IMS-Software/releases/download/v1.0.0/Pharma-IMS_1.0.0_x64-setup.nsis.zip",
+    "signature": "",
+    "isDeployed": false
+  }
+}

@@ -63,7 +63,22 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState<CustomerRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | BusinessType | "expiring_soon" | "expired">("all");
+  const [activeTab, setActiveTab] = useState<
+    "all" | BusinessType | "pending_requests" | "expiring_soon" | "expired" | "releases"
+  >("all");
+
+  // Releases & Updates Deployment state
+  const [releases, setReleases] = useState<Record<string, any>>({});
+  const [loadingReleases, setLoadingReleases] = useState(false);
+  const [deployForm, setDeployForm] = useState({
+    product: "agro",
+    version: "1.0.1",
+    notes: "Agro Kendra IMS v1.0.1: Added invoice product search, Yoogle branding, and performance improvements.",
+    url: "https://github.com/1001av/IMS-Software/releases/download/v1.0.1/Agro-Kendra-IMS_1.0.1_x64-setup.nsis.zip",
+    isDeployed: true,
+  });
+  const [deploying, setDeploying] = useState(false);
+  const [deployMsg, setDeployMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // Modals state
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
@@ -144,6 +159,56 @@ export default function AdminDashboard() {
     }));
   };
 
+  async function loadReleases() {
+    setLoadingReleases(true);
+    try {
+      const res = await fetch("/api/updates?manage=true");
+      if (res.ok) {
+        const data = await res.json();
+        setReleases(data.releases || {});
+      }
+    } catch (e) {
+      console.warn("Failed to load releases", e);
+    } finally {
+      setLoadingReleases(false);
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === "releases") {
+      loadReleases();
+    }
+  }, [activeTab]);
+
+  async function handleDeployRelease(isDeployedOverride?: boolean) {
+    setDeploying(true);
+    setDeployMsg(null);
+    try {
+      const isDeployed = isDeployedOverride !== undefined ? isDeployedOverride : deployForm.isDeployed;
+      const res = await fetch("/api/updates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...deployForm,
+          isDeployed,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to update release");
+      setDeployMsg({
+        type: "success",
+        text: isDeployed
+          ? `✓ Version v${data.release.version} deployed! Older client apps will now receive the update notification.`
+          : `✓ Update deactivated. Client apps will NOT receive update notifications.`,
+      });
+      await loadReleases();
+    } catch (e: any) {
+      setDeployMsg({ type: "error", text: e?.message || "Failed to deploy release" });
+    } finally {
+      setDeploying(false);
+    }
+  }
+
   // Calculate live preview expiry date
   const calculatedExpiryDate = useMemo(() => {
     const today = new Date();
@@ -173,6 +238,7 @@ export default function AdminDashboard() {
     let active = 0;
     let expiringSoon = 0;
     let expired = 0;
+    let pendingActivation = 0;
     let totalRevenuePaise = 0;
     const byVertical: Record<BusinessType, number> = { agro: 0, pharma: 0, kirana: 0, general: 0 };
 
@@ -184,6 +250,7 @@ export default function AdminDashboard() {
       if (c.status === "active") active++;
       else if (c.status === "expiring_soon") expiringSoon++;
       else if (c.status === "expired") expired++;
+      else if (c.status === "pending_activation") pendingActivation++;
     }
 
     return {
@@ -191,6 +258,7 @@ export default function AdminDashboard() {
       active,
       expiringSoon,
       expired,
+      pendingActivation,
       revenueInRupees: Math.round(totalRevenuePaise / 100),
       byVertical,
     };
@@ -200,6 +268,7 @@ export default function AdminDashboard() {
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       // Tab filter
+      if (activeTab === "pending_requests" && c.status !== "pending_activation") return false;
       if (activeTab === "agro" && c.businessType !== "agro") return false;
       if (activeTab === "pharma" && c.businessType !== "pharma") return false;
       if (activeTab === "kirana" && c.businessType !== "kirana") return false;
@@ -304,17 +373,28 @@ export default function AdminDashboard() {
     }
   }
 
-  // Open renewal modal
+  // Open renewal / issue key modal
   function openRenewModal(customer: CustomerRecord) {
     setRenewingCustomer(customer);
+    let defaultPlan = customer.planName;
+    let defaultPrice = customer.pricePaise > 0 ? (customer.pricePaise / 100).toString() : "4999";
+
+    if (customer.status === "pending_activation" || customer.planName === "Pending Activation") {
+      if (customer.businessType === "agro") defaultPlan = "Agro Kendra Annual Pro";
+      else if (customer.businessType === "pharma") defaultPlan = "Pharmacy Annual Pro";
+      else if (customer.businessType === "kirana") defaultPlan = "Retail Kirana Annual Pro";
+      else defaultPlan = "Annual IMS Pro";
+      defaultPrice = "4999";
+    }
+
     setRenewForm({
       durationMode: "preset",
       presetMonths: 12,
       customMonths: 6,
       customDays: 30,
       exactExpiryDate: "",
-      planName: customer.planName,
-      price: (customer.pricePaise / 100).toString(),
+      planName: defaultPlan,
+      price: defaultPrice,
     });
     setIsRenewModalOpen(true);
   }
@@ -400,10 +480,16 @@ export default function AdminDashboard() {
   }
 
   // Days remaining helper
-  function formatDaysRemaining(expiryDate: string) {
+  function formatDaysRemaining(expiryDate?: string) {
+    if (!expiryDate || expiryDate.trim() === "") {
+      return { text: "Pending Activation", color: "text-amber-700 bg-amber-50 border-amber-300" };
+    }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const exp = new Date(expiryDate);
+    if (isNaN(exp.getTime())) {
+      return { text: "Pending Activation", color: "text-amber-700 bg-amber-50 border-amber-300" };
+    }
     exp.setHours(0, 0, 0, 0);
 
     const diffTime = exp.getTime() - today.getTime();
@@ -457,11 +543,32 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
         {/* KPI Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
             <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Stores</div>
             <div className="text-3xl font-extrabold text-slate-900 mt-2">{stats.total}</div>
             <div className="text-[11px] text-slate-500 mt-1">Across all business verticals</div>
+          </div>
+
+          <div
+            onClick={() => setActiveTab("pending_requests")}
+            className={clsx(
+              "p-5 rounded-2xl border shadow-xs transition-all cursor-pointer",
+              stats.pendingActivation > 0
+                ? "bg-amber-50/70 border-amber-300 ring-2 ring-amber-400/20 hover:bg-amber-100/70"
+                : "bg-white border-slate-200 hover:border-slate-300"
+            )}
+          >
+            <div className="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center justify-between">
+              <span>Key Requests</span>
+              {stats.pendingActivation > 0 && (
+                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              )}
+            </div>
+            <div className="text-3xl font-extrabold text-amber-800 mt-2">{stats.pendingActivation}</div>
+            <div className="text-[11px] text-amber-700 font-semibold mt-1">
+              {stats.pendingActivation > 0 ? "⚡ Needs key issuance" : "All requests answered"}
+            </div>
           </div>
 
           <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -522,24 +629,31 @@ export default function AdminDashboard() {
             <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
               {[
                 { id: "all", label: "All Stores" },
+                {
+                  id: "pending_requests",
+                  label: stats.pendingActivation > 0 ? `🔔 Requests (${stats.pendingActivation})` : "🔔 Requests",
+                },
                 { id: "agro", label: "🌱 Agro Kendra" },
                 { id: "pharma", label: "💊 Pharmacy" },
                 { id: "kirana", label: "🛒 Kirana" },
                 { id: "general", label: "🏢 General" },
                 { id: "expiring_soon", label: "⚠️ Expiring Soon" },
                 { id: "expired", label: "⛔ Expired" },
+                { id: "releases", label: "🚀 Deploy Updates" },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
                   className={clsx(
-                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                    "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5",
                     activeTab === tab.id
                       ? "bg-slate-900 text-white shadow-xs"
+                      : tab.id === "pending_requests" && stats.pendingActivation > 0
+                      ? "bg-amber-100 text-amber-900 hover:bg-amber-200 border border-amber-300 font-extrabold"
                       : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                   )}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
                 </button>
               ))}
             </div>
@@ -566,8 +680,191 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Customer Ledger Table */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        {/* Releases Deployment View OR Customer Ledger Table */}
+        {activeTab === "releases" ? (
+          <div className="space-y-6">
+            {/* Deploy Message Banner */}
+            {deployMsg && (
+              <div
+                className={clsx(
+                  "p-4 rounded-2xl border text-xs font-semibold flex items-center justify-between animate-in fade-in",
+                  deployMsg.type === "success"
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                    : "bg-rose-50 border-rose-200 text-rose-800"
+                )}
+              >
+                <span>{deployMsg.text}</span>
+                <button
+                  onClick={() => setDeployMsg(null)}
+                  className="text-slate-400 hover:text-slate-600 cursor-pointer ml-4 font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+
+            {/* Current Products Status Overview */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { id: "agro", name: "Agro Kendra IMS", icon: "🌱" },
+                { id: "kirana", name: "Kirana Store IMS", icon: "🛒" },
+                { id: "pharma", name: "Pharma IMS", icon: "💊" },
+              ].map((prod) => {
+                const rel = releases[prod.id] || { version: "1.0.0", isDeployed: false };
+                return (
+                  <div key={prod.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 font-bold text-sm text-slate-900">
+                        <span>{prod.icon}</span>
+                        <span>{prod.name}</span>
+                      </div>
+                      <span
+                        className={clsx(
+                          "px-2.5 py-0.5 rounded-full text-[10px] font-bold border",
+                          rel.isDeployed
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-slate-100 text-slate-500 border-slate-200"
+                        )}
+                      >
+                        {rel.isDeployed ? "🟢 Live & Deployed" : "⚪ Not Deployed"}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1 text-xs text-slate-600">
+                      <div className="flex justify-between py-1 border-b border-slate-100">
+                        <span className="text-slate-400">Deployed Version:</span>
+                        <strong className="font-mono text-slate-900">v{rel.version || "1.0.0"}</strong>
+                      </div>
+                      <div className="py-1">
+                        <span className="text-slate-400 block text-[11px]">Notes:</span>
+                        <p className="text-slate-700 text-xs mt-0.5 line-clamp-2">{rel.notes || "Stable production release"}</p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between border-t border-slate-100">
+                      <button
+                        onClick={() => {
+                          setDeployForm({
+                            product: prod.id,
+                            version: rel.version || "1.0.1",
+                            notes: rel.notes || "",
+                            url: rel.url || "",
+                            isDeployed: !rel.isDeployed,
+                          });
+                          handleDeployRelease(!rel.isDeployed);
+                        }}
+                        className={clsx(
+                          "px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                          rel.isDeployed
+                            ? "bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200"
+                            : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200"
+                        )}
+                      >
+                        {rel.isDeployed ? "⏸️ Deactivate Update" : "🚀 Deploy Update"}
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          setDeployForm({
+                            product: prod.id,
+                            version: rel.version || "1.0.1",
+                            notes: rel.notes || "",
+                            url: rel.url || "",
+                            isDeployed: true,
+                          });
+                        }}
+                        className="text-xs text-slate-500 hover:text-slate-800 font-semibold underline cursor-pointer"
+                      >
+                        Edit Details
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Deploy New Version Form */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <span>🚀</span> Deploy Software Update
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Publish an update to client computers. Only older versions will receive an update notification banner.
+                  Once downloaded, the banner is automatically removed from the user&apos;s screen.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Product Vertical *</label>
+                  <select
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs cursor-pointer focus:bg-white"
+                    value={deployForm.product}
+                    onChange={(e) => setDeployForm({ ...deployForm, product: e.target.value })}
+                  >
+                    <option value="agro">Agro Kendra IMS (agro)</option>
+                    <option value="kirana">Kirana Store IMS (kirana)</option>
+                    <option value="pharma">Pharma IMS (pharma)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">New Target Version (Semver) *</label>
+                  <input
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white"
+                    value={deployForm.version}
+                    onChange={(e) => setDeployForm({ ...deployForm, version: e.target.value })}
+                    placeholder="e.g. 1.0.1"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Release Notes / What&apos;s New *</label>
+                  <textarea
+                    rows={3}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white"
+                    value={deployForm.notes}
+                    onChange={(e) => setDeployForm({ ...deployForm, notes: e.target.value })}
+                    placeholder="e.g. Added invoice product search, Yoogle branding, and bug fixes."
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-1">Installer Download URL (GitHub Release / Direct Link) *</label>
+                  <input
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono focus:bg-white"
+                    value={deployForm.url}
+                    onChange={(e) => setDeployForm({ ...deployForm, url: e.target.value })}
+                    placeholder="https://github.com/1001av/IMS-Software/releases/download/v1.0.1/..."
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2 flex items-center justify-between">
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={deployForm.isDeployed}
+                    onChange={(e) => setDeployForm({ ...deployForm, isDeployed: e.target.checked })}
+                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                  />
+                  <span>Activate immediately (Notify older versions on startup)</span>
+                </label>
+
+                <button
+                  onClick={() => handleDeployRelease()}
+                  disabled={deploying || !deployForm.version.trim()}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  {deploying ? "Deploying..." : "🚀 Deploy Update to Users"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Customer Ledger Table */
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -627,15 +924,26 @@ export default function AdminDashboard() {
                         <td className="py-4 px-4">
                           <div className="font-semibold text-slate-800">{c.planName}</div>
                           <div className="text-emerald-600 font-bold text-[11px] mt-0.5">
-                            {c.pricePaise > 0 ? `₹${(c.pricePaise / 100).toLocaleString("en-IN")}` : "Free Trial"}
+                            {c.pricePaise > 0
+                              ? `₹${(c.pricePaise / 100).toLocaleString("en-IN")}`
+                              : c.status === "pending_activation"
+                              ? "Awaiting Activation"
+                              : "Free Trial"}
                           </div>
                         </td>
 
                         <td className="py-4 px-4">
-                          <div className="text-slate-700 font-medium">
-                            {new Date(c.startDate).toLocaleDateString("en-IN")} →{" "}
-                            <strong className="text-slate-900">{new Date(c.expiryDate).toLocaleDateString("en-IN")}</strong>
-                          </div>
+                          {c.status === "pending_activation" || !c.expiryDate ? (
+                            <div className="text-amber-700 font-semibold text-xs flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                              <span>Requested on {new Date(c.createdAt || c.startDate).toLocaleDateString("en-IN")}</span>
+                            </div>
+                          ) : (
+                            <div className="text-slate-700 font-medium">
+                              {new Date(c.startDate).toLocaleDateString("en-IN")} →{" "}
+                              <strong className="text-slate-900">{new Date(c.expiryDate).toLocaleDateString("en-IN")}</strong>
+                            </div>
+                          )}
                           <div className="mt-1">
                             <span className={clsx("inline-block px-2 py-0.5 rounded-md border text-[10px] font-bold", daysInfo.color)}>
                               {daysInfo.text}
@@ -644,24 +952,28 @@ export default function AdminDashboard() {
                         </td>
 
                         <td className="py-4 px-4 max-w-[200px]">
-                          <div className="flex items-center gap-2">
-                            <code className="bg-slate-100 px-2 py-1 rounded font-mono text-[11px] text-slate-700 truncate max-w-[130px] border border-slate-200">
-                              {c.subscriptionKey}
-                            </code>
-                            <button
-                              onClick={() => copyToClipboard(c.subscriptionKey)}
-                              title="Copy Key"
-                              className="p-1 hover:bg-slate-200 rounded text-slate-600 hover:text-slate-900 cursor-pointer"
-                            >
-                              {copiedKey === c.subscriptionKey ? (
-                                <span className="text-[10px] font-bold text-emerald-600">✓</span>
-                              ) : (
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
-                                </svg>
-                              )}
-                            </button>
-                          </div>
+                          {c.subscriptionKey ? (
+                            <div className="flex items-center gap-2">
+                              <code className="bg-slate-100 px-2 py-1 rounded font-mono text-[11px] text-slate-700 truncate max-w-[130px] border border-slate-200">
+                                {c.subscriptionKey}
+                              </code>
+                              <button
+                                onClick={() => copyToClipboard(c.subscriptionKey)}
+                                title="Copy Key"
+                                className="p-1 hover:bg-slate-200 rounded text-slate-600 hover:text-slate-900 cursor-pointer"
+                              >
+                                {copiedKey === c.subscriptionKey ? (
+                                  <span className="text-[10px] font-bold text-emerald-600">✓</span>
+                                ) : (
+                                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                                  </svg>
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 italic">Not issued yet</span>
+                          )}
                         </td>
 
                         <td className="py-4 px-4">
@@ -672,6 +984,8 @@ export default function AdminDashboard() {
                                 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                                 : c.status === "expiring_soon"
                                 ? "bg-amber-50 text-amber-700 border border-amber-200"
+                                : c.status === "pending_activation"
+                                ? "bg-amber-100 text-amber-900 border border-amber-300 font-black animate-pulse"
                                 : "bg-rose-50 text-rose-700 border border-rose-200"
                             )}
                           >
@@ -682,40 +996,55 @@ export default function AdminDashboard() {
                                   ? "bg-emerald-500"
                                   : c.status === "expiring_soon"
                                   ? "bg-amber-500"
+                                  : c.status === "pending_activation"
+                                  ? "bg-amber-600"
                                   : "bg-rose-500"
                               )}
                             />
-                            {c.status === "active" ? "Active" : c.status === "expiring_soon" ? "Expiring" : "Expired"}
+                            {c.status === "active"
+                              ? "Active"
+                              : c.status === "expiring_soon"
+                              ? "Expiring"
+                              : c.status === "pending_activation"
+                              ? "Pending Key"
+                              : "Expired"}
                           </span>
                         </td>
 
                         <td className="py-4 px-4 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {/* WhatsApp Share */}
-                            <a
-                              href={getWhatsAppUrl(
-                                c.phone,
-                                c.customerName,
-                                c.storeName,
-                                c.businessType,
-                                c.planName,
-                                c.expiryDate,
-                                c.subscriptionKey
-                              )}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-all"
-                              title="Send Key via WhatsApp"
-                            >
-                              💬
-                            </a>
+                            {/* WhatsApp Share (if key exists) */}
+                            {c.subscriptionKey && (
+                              <a
+                                href={getWhatsAppUrl(
+                                  c.phone,
+                                  c.customerName,
+                                  c.storeName,
+                                  c.businessType,
+                                  c.planName,
+                                  c.expiryDate,
+                                  c.subscriptionKey
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-all"
+                                title="Send Key via WhatsApp"
+                              >
+                                💬
+                              </a>
+                            )}
 
-                            {/* Renew Button */}
+                            {/* Issue Key / Renew Button */}
                             <button
                               onClick={() => openRenewModal(c)}
-                              className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                              className={clsx(
+                                "px-2.5 py-1.5 rounded-lg font-bold text-xs inline-flex items-center gap-1 cursor-pointer transition-all shadow-xs",
+                                c.status === "pending_activation"
+                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm ring-2 ring-emerald-600/20"
+                                  : "bg-slate-900 hover:bg-slate-800 text-white"
+                              )}
                             >
-                              🔄 Renew
+                              {c.status === "pending_activation" ? "⚡ Issue Key" : "🔄 Renew"}
                             </button>
                           </div>
                         </td>
@@ -727,6 +1056,7 @@ export default function AdminDashboard() {
             </table>
           </div>
         </div>
+        )}
       </main>
 
       {/* MODAL 1: Generate Key / Register Store */}
@@ -1014,7 +1344,9 @@ export default function AdminDashboard() {
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden my-8 animate-in fade-in zoom-in-95">
             <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
               <div>
-                <h3 className="text-base font-bold text-slate-900">Renew Subscription</h3>
+                <h3 className="text-base font-bold text-slate-900">
+                  {renewingCustomer.status === "pending_activation" ? "⚡ Issue Initial Activation Key" : "Renew Subscription"}
+                </h3>
                 <p className="text-xs text-slate-500">
                   {renewingCustomer.storeName} ({renewingCustomer.customerName})
                 </p>
@@ -1029,9 +1361,13 @@ export default function AdminDashboard() {
 
             <form onSubmit={handleRenewCustomer} className="p-6 space-y-4 text-xs">
               <div className="p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="text-slate-500 text-[11px]">Current Expiry:</div>
+                <div className="text-slate-500 text-[11px]">
+                  {renewingCustomer.status === "pending_activation" ? "Store Status:" : "Current Expiry:"}
+                </div>
                 <div className="font-bold text-slate-900 text-sm">
-                  {new Date(renewingCustomer.expiryDate).toLocaleDateString("en-IN")}
+                  {renewingCustomer.status === "pending_activation" || !renewingCustomer.expiryDate
+                    ? "Awaiting Initial Activation Code"
+                    : new Date(renewingCustomer.expiryDate).toLocaleDateString("en-IN")}
                 </div>
               </div>
 
@@ -1122,7 +1458,9 @@ export default function AdminDashboard() {
               </div>
 
               <div>
-                <label className="font-bold text-slate-700 block mb-1">Renewal Plan Name</label>
+                <label className="font-bold text-slate-700 block mb-1">
+                  {renewingCustomer.status === "pending_activation" ? "Initial Plan Name" : "Renewal Plan Name"}
+                </label>
                 <input
                   type="text"
                   value={renewForm.planName}
@@ -1154,7 +1492,11 @@ export default function AdminDashboard() {
                   disabled={submitting}
                   className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-xs cursor-pointer"
                 >
-                  {submitting ? "Renewing..." : "🔄 Generate Renewal Key"}
+                  {submitting
+                    ? "Signing Key..."
+                    : renewingCustomer.status === "pending_activation"
+                    ? "⚡ Generate & Issue Activation Key"
+                    : "🔄 Generate Renewal Key"}
                 </button>
               </div>
             </form>

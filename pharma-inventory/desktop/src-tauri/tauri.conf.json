@@ -22,12 +22,14 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; style-src 'self' 'unsafe-inline'"
+      "csp": "default-src 'self'; connect-src 'self' https://ims-software-one-theta.vercel.app http://localhost:3001; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;"
     }
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -43,7 +45,17 @@
   },
   "plugins": {
     "sql": {
-      "preload": ["sqlite:pharma.db"]
+      "preload": [
+        "sqlite:pharma.db"
+      ]
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZCN0Q4OURFNzg4RjkzRjEKUldUeGs0OTQzb2w5YTVQK000Z3p6bTVWV3JQWXpJRzNWYWZ5WmQ3NzEvL0VRYUtFMjY1YVhaUjgK",
+      "endpoints": [
+        "https://ims-software-one-theta.vercel.app/api/updates?target={{target}}&current_version={{current_version}}&product=agro",
+        "https://github.com/1001av/IMS-Software/releases/latest/download/latest-agro.json"
+      ],
+      "dangerousInsecureTransport": true
     }
   }
 }

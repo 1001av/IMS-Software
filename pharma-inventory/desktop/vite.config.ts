@@ -18,6 +18,9 @@ export default defineConfig({
     strictPort: true,
   },
   envPrefix: ["VITE_", "TAURI_"],
+  define: {
+    "import.meta.env.VITE_PRODUCT_VERTICAL": JSON.stringify(process.env.VITE_PRODUCT_VERTICAL || "agro"),
+  },
   build: {
     target: process.env.TAURI_PLATFORM == "windows" ? "chrome105" : "safari13",
     minify: !process.env.TAURI_DEBUG ? "esbuild" : false,

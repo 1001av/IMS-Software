@@ -14,7 +14,18 @@
     "subscriptionKey": "PHARMA-eyJjdXN0b21lck5hbWUiOiJSYW1lc2ggUGF0ZWwiLCJzdG9yZU5hbWUiOiJLaXNhbiBLcmlzaGkgU2V2YSBLZW5kcmEiLCJwbGFuTmFtZSI6Iktpc2FuIFBybyBBbm51YWwgKDEgWWVhcikiLCJwcmljZVBhaXNlIjo0OTk5MDAsInN0YXJ0RGF0ZSI6IjIwMjYtMDgtMDgiLCJleHBpcnlEYXRlIjoiMjAyNy0wOC0wOCIsImJ1c2luZXNzVHlwZSI6ImFncm8iLCJpc3N1ZWRBdCI6MTc4ODgwNjQ5ODY5Nn0-6d241b6276c8d428fb2f3a82f40179b3",
     "status": "active",
     "createdAt": "2026-09-07T18:41:38.705Z",
-    "updatedAt": "2026-09-07T18:41:38.705Z"
+    "updatedAt": "2026-10-06T17:58:48.581Z",
+    "maxDevices": 2,
+    "registeredDevices": [
+      {
+        "deviceId": "dev-muwzfvnw-fzt7",
+        "deviceName": "Computer 2 (Laptop)",
+        "devicePrefix": "A",
+        "registeredAt": "2026-10-06T17:58:48.581Z",
+        "lastSeenAt": "2026-10-06T17:58:48.581Z"
+      }
+    ],
+    "passwordHash": "ca61bc08c8d8f8d83e70bbaeedffbb7d3384afb26cbf407236765d03a658b47c"
   },
   {
     "id": "cust-pharma-002",
@@ -31,7 +42,10 @@
     "subscriptionKey": "PHARMA-eyJjdXN0b21lck5hbWUiOiJEci4gQXJ2aW5kIFNoYXJtYSIsInN0b3JlTmFtZSI6IlNocmVlIEdhbmVzaCBNZWRpY2FsIFN0b3JlIiwicGxhbk5hbWUiOiJQaGFybWFjeSBFbnRlcnByaXNlICg2IE1vbnRocykiLCJwcmljZVBhaXNlIjoyOTk5MDAsInN0YXJ0RGF0ZSI6IjIwMjYtMDctMjQiLCJleHBpcnlEYXRlIjoiMjAyNy0wMS0yMCIsImJ1c2luZXNzVHlwZSI6InBoYXJtYSIsImlzc3VlZEF0IjoxNzg4ODA2NDk4NzA1fQ-05fd21e7998d0bbe2c888f07bf0fb544",
     "status": "active",
     "createdAt": "2026-09-07T18:41:38.706Z",
-    "updatedAt": "2026-09-07T18:41:38.706Z"
+    "updatedAt": "2026-09-07T18:41:38.706Z",
+    "maxDevices": 2,
+    "registeredDevices": [],
+    "passwordHash": "ca61bc08c8d8f8d83e70bbaeedffbb7d3384afb26cbf407236765d03a658b47c"
   },
   {
     "id": "cust-kirana-003",
@@ -46,9 +60,12 @@
     "startDate": "2026-06-19",
     "expiryDate": "2026-09-17",
     "subscriptionKey": "PHARMA-eyJjdXN0b21lck5hbWUiOiJTdXJlc2ggR3VwdGEiLCJzdG9yZU5hbWUiOiJNYWhhdmlyIEtpcmFuYSAmIEZNQ0cgU3RvcmUiLCJwbGFuTmFtZSI6IlJldGFpbCBTdGFuZGFyZCAoMyBNb250aHMpIiwicHJpY2VQYWlzZSI6MTQ5OTAwLCJzdGFydERhdGUiOiIyMDI2LTA2LTE5IiwiZXhwaXJ5RGF0ZSI6IjIwMjYtMDktMTciLCJidXNpbmVzc1R5cGUiOiJraXJhbmEiLCJpc3N1ZWRBdCI6MTc4ODgwNjQ5ODcwNn0-3286110f044286716130ce975ecddb82",
-    "status": "expiring_soon",
+    "status": "expired",
     "createdAt": "2026-09-07T18:41:38.706Z",
-    "updatedAt": "2026-09-07T18:41:38.706Z"
+    "updatedAt": "2026-09-07T18:41:38.706Z",
+    "maxDevices": 2,
+    "registeredDevices": [],
+    "passwordHash": "ca61bc08c8d8f8d83e70bbaeedffbb7d3384afb26cbf407236765d03a658b47c"
   },
   {
     "id": "cust-agro-004",
@@ -65,7 +82,10 @@
     "subscriptionKey": "PHARMA-eyJjdXN0b21lck5hbWUiOiJEZXZlbmRyYSBTaW5naCIsInN0b3JlTmFtZSI6IlBhdGVsIEZlcnRpbGl6ZXIgJiBQZXN0aWNpZGVzIiwicGxhbk5hbWUiOiJBZ3JvIFNlYXNvbmFsIFBsYW4gKDYgTW9udGhzKSIsInByaWNlUGFpc2UiOjI0OTkwMCwic3RhcnREYXRlIjoiMjAyNi0wOC0yMyIsImV4cGlyeURhdGUiOiIyMDI3LTAyLTE5IiwiYnVzaW5lc3NUeXBlIjoiYWdybyIsImlzc3VlZEF0IjoxNzg4ODA2NDk4NzA2fQ-62c924d008636089ba94c088b9041011",
     "status": "active",
     "createdAt": "2026-09-07T18:41:38.706Z",
-    "updatedAt": "2026-09-07T18:41:38.706Z"
+    "updatedAt": "2026-09-07T18:41:38.706Z",
+    "maxDevices": 2,
+    "registeredDevices": [],
+    "passwordHash": "ca61bc08c8d8f8d83e70bbaeedffbb7d3384afb26cbf407236765d03a658b47c"
   },
   {
     "id": "cust-pharma-005",
@@ -82,6 +102,9 @@
     "subscriptionKey": "PHARMA-eyJjdXN0b21lck5hbWUiOiJNdWtlc2ggQ2hvdWhhbiIsInN0b3JlTmFtZSI6IlNhbmplZXZhbmkgQ2hlbWlzdCAmIERydWdnaXN0IiwicGxhbk5hbWUiOiJTdGFydGVyIFRyaWFsICgzMCBEYXlzKSIsInByaWNlUGFpc2UiOjAsInN0YXJ0RGF0ZSI6IjIwMjYtMDctMjkiLCJleHBpcnlEYXRlIjoiMjAyNi0wOC0yOCIsImJ1c2luZXNzVHlwZSI6InBoYXJtYSIsImlzc3VlZEF0IjoxNzg4ODA2NDk4NzA2fQ-94f260debd940bffcefd024aca7e43e0",
     "status": "expired",
     "createdAt": "2026-09-07T18:41:38.707Z",
-    "updatedAt": "2026-09-07T18:41:38.707Z"
+    "updatedAt": "2026-09-07T18:41:38.707Z",
+    "maxDevices": 2,
+    "registeredDevices": [],
+    "passwordHash": "ca61bc08c8d8f8d83e70bbaeedffbb7d3384afb26cbf407236765d03a658b47c"
   }
 ]

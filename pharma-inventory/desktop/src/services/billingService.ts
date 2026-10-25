@@ -11,15 +11,35 @@ import type {
 const nowIso = () => new Date().toISOString();
 
 /**
+ * Retrieves the device prefix for collision-free multi-device invoicing.
+ * Defaults to 'A' for Device 1, 'B' for Device 2.
+ */
+export async function getDevicePrefix(): Promise<string> {
+  try {
+    const rows = await query<{ value: string }>(
+      "SELECT value FROM settings WHERE key = 'device_prefix' LIMIT 1"
+    );
+    if (rows.length > 0 && rows[0].value) {
+      return rows[0].value.trim().toUpperCase();
+    }
+  } catch {
+    // Fallback
+  }
+  return "A";
+}
+
+/**
  * Generates the next sequential invoice number for the pharmacy.
- * Format: INV-YYYYMMDD-XXXX (e.g. INV-20260905-0001)
+ * Format: INV-YYYYMMDD-[PREFIX]XXXX (e.g. INV-20260921-A0001 or INV-20260921-B0001)
+ * Guaranteed collision-free across multiple devices operating offline.
  */
 export async function generateNextInvoiceNumber(pharmacyId: string): Promise<string> {
+  const devPrefix = await getDevicePrefix();
   const today = new Date();
   const yyyy = today.getFullYear();
   const mm = String(today.getMonth() + 1).padStart(2, "0");
   const dd = String(today.getDate()).padStart(2, "0");
-  const prefix = `INV-${yyyy}${mm}${dd}-`;
+  const prefix = `INV-${yyyy}${mm}${dd}-${devPrefix}`;
 
   const rows = await query<{ invoice_number: string }>(
     `SELECT invoice_number FROM invoices 
@@ -39,6 +59,8 @@ export async function generateNextInvoiceNumber(pharmacyId: string): Promise<str
   return `${prefix}0001`;
 }
 
+import { assertSubscriptionActive } from "@/services/subscriptionService";
+
 /**
  * Creates an invoice and synchronously updates stock levels with audit movements.
  */
@@ -46,6 +68,8 @@ export async function createInvoice(
   pharmacyId: string,
   input: NewInvoiceInput
 ): Promise<Invoice> {
+  await assertSubscriptionActive();
+
   if (!input.items || input.items.length === 0) {
     throw new Error("Cannot create an empty invoice with no items.");
   }
@@ -202,8 +226,16 @@ export async function listInvoices(
 
   if (filter.search?.trim()) {
     const s = `%${filter.search.trim()}%`;
-    clauses.push("(invoice_number LIKE ? OR customer_name LIKE ? OR customer_phone LIKE ?)");
-    params.push(s, s, s);
+    clauses.push(`(
+      invoice_number LIKE ? 
+      OR customer_name LIKE ? 
+      OR customer_phone LIKE ?
+      OR id IN (
+        SELECT invoice_id FROM invoice_items 
+        WHERE medicine_name LIKE ? OR batch_number LIKE ?
+      )
+    )`);
+    params.push(s, s, s, s, s);
   }
 
   if (filter.status && filter.status !== "all") {
@@ -239,7 +271,12 @@ export async function listInvoices(
   const offset = (page - 1) * pageSize;
 
   const invoices = await query<Invoice>(
-    `SELECT * FROM invoices ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
+    `SELECT invoices.*,
+      (SELECT GROUP_CONCAT(invoice_items.medicine_name, ', ') 
+       FROM invoice_items 
+       WHERE invoice_items.invoice_id = invoices.id
+      ) as items_summary
+     FROM invoices ${whereClause} ORDER BY created_at DESC LIMIT ? OFFSET ?`,
     [...params, pageSize, offset]
   );
 

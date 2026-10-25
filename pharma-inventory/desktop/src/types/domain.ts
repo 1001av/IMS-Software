@@ -98,7 +98,7 @@ export interface DashboardSummary {
   expiring_soon_medicines: Medicine[];
 }
 
-export type SubscriptionStatus = "active" | "expiring_soon" | "expired";
+export type SubscriptionStatus = "active" | "expiring_soon" | "expired" | "unactivated";
 
 export interface Subscription {
   id: string;
@@ -169,6 +169,7 @@ export interface Invoice {
   created_at: string;
   updated_at: string;
   items?: InvoiceItem[];
+  items_summary?: string;
 }
 
 export interface InvoiceItem {

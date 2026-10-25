@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-
 export type BusinessType = "agro" | "pharma" | "kirana" | "general";
 
 export interface BusinessConfig {
@@ -78,44 +76,48 @@ export const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
 
   pharma: {
     id: "pharma",
-    appName: "Pharma Inventory",
-    badgeText: "Pharmacy & Medical Edition",
+    appName: "Pharma IMS",
+    badgeText: "Pharmacy & Healthcare Edition",
     tagline: "Pharmaceutical Inventory & Prescription Billing",
     storeNamePlaceholder: "e.g. Shree Ganesh Medical Store",
     itemLabel: "Medicine",
     itemLabelPlural: "Medicines",
-    genericLabel: "Generic Formula / Salt",
-    genericPlaceholder: "e.g. Paracetamol, Amoxicillin",
+    genericLabel: "Salt Composition / Generic Molecule",
+    genericPlaceholder: "e.g. Paracetamol 650mg, Amoxicillin + Clavulanic Acid",
     customerLabel: "Patient / Customer Name",
     customerPlaceholder: "e.g. Suresh Kumar",
-    referenceLabel: "Doctor / Prescriber",
-    referencePlaceholder: "e.g. Dr. A. Sharma",
-    receiptTitle: "RETAIL CASH MEMO / TAX INVOICE",
-    receiptFooter: "Get Well Soon! Medicines sold cannot be returned without original cash memo.",
+    referenceLabel: "Prescribing Doctor / Clinic",
+    referencePlaceholder: "e.g. Dr. A. Sharma (MBBS, MD)",
+    receiptTitle: "PHARMACY TAX INVOICE / CASH MEMO",
+    receiptFooter: "Medicines sold cannot be returned without original cash memo. Wish you good health!",
     licenseFields: [
-      { key: "license_drug", label: "Drug License No. (20B / 21B)", placeholder: "e.g. DL-20B-9842" },
-      { key: "license_pharmacist", label: "Pharmacist Reg. No.", placeholder: "e.g. PH-REG-4521" },
+      { key: "license_drug", label: "Drug License No. (Form 20B / 21B)", placeholder: "e.g. DL-20B-9842" },
+      { key: "license_pharmacist", label: "Pharmacist Registration No.", placeholder: "e.g. PH-REG-4521" },
+      { key: "license_fssai", label: "FSSAI Food/Nutraceutical Lic No.", placeholder: "e.g. 10020011000123" },
       { key: "gstin", label: "GSTIN (Tax ID)", placeholder: "e.g. 23AAAAA0000A1Z5" },
     ],
     categories: [
       "Antibiotics",
-      "Analgesics / Pain Relief",
+      "Analgesics & Pain Relief",
+      "Cardiac & Diabetic Care",
       "Syrups & Suspensions",
       "Vitamins & Supplements",
       "Injections & Vials",
       "Surgical & First Aid",
       "Ointments & Creams",
-      "Cardiac & Diabetic",
-      "Other Healthcare",
+      "OTC Healthcare",
+      "Other Medicines",
     ],
     units: [
       "Strip",
       "Box",
       "Bottle",
       "Vial",
+      "Ampoule",
       "Tablet",
       "Capsule",
       "Tube",
+      "Sachet",
       "pcs",
     ],
     primaryColorHex: "#0D9488", // Teal 600
@@ -125,21 +127,22 @@ export const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
   kirana: {
     id: "kirana",
     appName: "Kirana Store IMS",
-    badgeText: "Kirana & Retail Edition",
+    badgeText: "Kirana & Retail Supermarket Edition",
     tagline: "Grocery, FMCG & Daily Provisions Inventory",
     storeNamePlaceholder: "e.g. Mahavir Kirana & General Store",
     itemLabel: "Grocery Item",
     itemLabelPlural: "Grocery Items",
     genericLabel: "Brand / Variety / Grade",
-    genericPlaceholder: "e.g. Premium Basmati, Whole Wheat Chakki",
-    customerLabel: "Customer Name",
-    customerPlaceholder: "e.g. Anita Sharma",
-    referenceLabel: "Area / Address",
-    referencePlaceholder: "e.g. Sector 4, Main Market",
-    receiptTitle: "RETAIL INVOICE / CASH BILL",
+    genericPlaceholder: "e.g. Premium Basmati Rice, Whole Wheat Chakki Atta",
+    customerLabel: "Customer / Account Holder Name",
+    customerPlaceholder: "e.g. Rajesh Gupta",
+    referenceLabel: "Area / Delivery Address / Khata Note",
+    referencePlaceholder: "e.g. Main Market, Shop No. 4",
+    receiptTitle: "RETAIL CASH MEMO / KIRANA TAX INVOICE",
     receiptFooter: "Thank you for shopping with us! Please visit again.",
     licenseFields: [
       { key: "license_fssai", label: "FSSAI License No.", placeholder: "e.g. 10020011000123" },
+      { key: "license_trade", label: "Shop Act / Trade License No.", placeholder: "e.g. TR-2026-98" },
       { key: "gstin", label: "GSTIN (Tax ID)", placeholder: "e.g. 23AAAAA0000A1Z5" },
     ],
     categories: [
@@ -164,6 +167,7 @@ export const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
       "Bag",
       "Bottle",
       "Box",
+      "Can",
       "pcs",
     ],
     primaryColorHex: "#2563EB", // Blue 600
@@ -197,43 +201,31 @@ export const BUSINESS_CONFIGS: Record<BusinessType, BusinessConfig> = {
   },
 };
 
-/** Retrieves active business vertical preset, default is 'agro'. */
+/**
+ * Compile-time Target Product Edition.
+ * Each business vertical is an independent product build (e.g. Agro Kendra IMS).
+ * Defaults to 'agro' (Agro Kendra IMS).
+ */
+export const TARGET_PRODUCT_TYPE: BusinessType =
+  ((import.meta as any).env?.VITE_PRODUCT_VERTICAL as BusinessType) || "agro";
+
+/** Retrieves active product vertical. Anchored to target product build. */
 export function getActiveBusinessType(): BusinessType {
-  const saved = localStorage.getItem("business_type") as BusinessType;
-  if (saved && BUSINESS_CONFIGS[saved]) {
-    return saved;
-  }
-  return "agro"; // Default to Agro Kendra
+  return TARGET_PRODUCT_TYPE;
 }
 
-/** Sets active business vertical and broadcasts change event. */
-export function setActiveBusinessType(type: BusinessType): void {
-  localStorage.setItem("business_type", type);
-  window.dispatchEvent(new Event("business_type_changed"));
+/** Legacy helper kept for compatibility; product is strictly anchored to build */
+export function setActiveBusinessType(_type: BusinessType): void {
+  // Product vertical is anchored at build time to ensure 100% integrity
 }
 
 /** Helper to retrieve business configuration. */
 export function getBusinessConfig(type?: BusinessType): BusinessConfig {
-  const active = type || getActiveBusinessType();
+  const active = type || TARGET_PRODUCT_TYPE;
   return BUSINESS_CONFIGS[active] || BUSINESS_CONFIGS.agro;
 }
 
-/** React hook that reacts in real-time when the business vertical is changed. */
+/** React hook that provides the immutable business product configuration. */
 export function useBusinessConfig(): BusinessConfig {
-  const [config, setConfig] = useState<BusinessConfig>(() => getBusinessConfig());
-
-  useEffect(() => {
-    const handleUpdate = () => {
-      setConfig(getBusinessConfig());
-    };
-
-    window.addEventListener("business_type_changed", handleUpdate);
-    window.addEventListener("storage", handleUpdate);
-    return () => {
-      window.removeEventListener("business_type_changed", handleUpdate);
-      window.removeEventListener("storage", handleUpdate);
-    };
-  }, []);
-
-  return config;
+  return getBusinessConfig();
 }

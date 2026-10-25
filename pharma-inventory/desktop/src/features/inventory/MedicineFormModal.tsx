@@ -92,7 +92,13 @@ export function MedicineFormModal({ pharmacyId, medicine, onClose, onSaved }: Pr
             className="input"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder={config.id === "agro" ? "e.g. Coragen, Confidor, DAP 50kg" : "Product name"}
+            placeholder={
+              config.id === "agro"
+                ? "e.g. Coragen 150ml, Confidor, DAP 50kg, NPK 19:19:19"
+                : config.id === "pharma"
+                ? "e.g. Dolo 650mg, Augmentin 625, Azithral 500mg, Pan-D"
+                : "e.g. Fortune Sunflower Oil 1L, Aashirvaad Atta 10kg, Tata Salt 1kg"
+            }
             autoFocus
           />
         </div>
@@ -167,7 +173,13 @@ export function MedicineFormModal({ pharmacyId, medicine, onClose, onSaved }: Pr
                   className="input"
                   value={brandName}
                   onChange={(e) => setBrandName(e.target.value)}
-                  placeholder={config.id === "agro" ? "e.g. Bayer, Syngenta, FMC, IFFCO" : "Brand / Company"}
+                  placeholder={
+                    config.id === "agro"
+                      ? "e.g. Bayer, Syngenta, FMC, IFFCO, UPL"
+                      : config.id === "pharma"
+                      ? "e.g. Sun Pharma, Cipla, Mankind, Abbott"
+                      : "e.g. ITC, Nestlé, HUL, Britannia, Tata"
+                  }
                 />
               </div>
 
@@ -193,7 +205,13 @@ export function MedicineFormModal({ pharmacyId, medicine, onClose, onSaved }: Pr
                   className="input"
                   value={manufacturer}
                   onChange={(e) => setManufacturer(e.target.value)}
-                  placeholder="Manufacturing company"
+                  placeholder={
+                    config.id === "agro"
+                      ? "e.g. Bayer CropScience Ltd"
+                      : config.id === "pharma"
+                      ? "e.g. Cipla Laboratories / Sun Pharma"
+                      : "e.g. Hindustan Unilever Ltd / ITC Foods"
+                  }
                 />
               </div>
 
@@ -242,34 +260,70 @@ export function MedicineFormModal({ pharmacyId, medicine, onClose, onSaved }: Pr
               </div>
 
               <div>
-                <label className="label">Distributor / Supplier</label>
+                <label className="label">
+                  {config.id === "agro"
+                    ? "C&F / Distributor / Dealer Name"
+                    : config.id === "pharma"
+                    ? "Wholesale Distributor / Stockist Name"
+                    : "Supplier / Wholesaler Agency Name"}
+                </label>
                 <input
                   className="input"
                   value={supplierName}
                   onChange={(e) => setSupplierName(e.target.value)}
-                  placeholder="Distributor / C&F name"
+                  placeholder={
+                    config.id === "agro"
+                      ? "e.g. Kisan Agro Agency / C&F"
+                      : config.id === "pharma"
+                      ? "e.g. Shree Medico Stockists"
+                      : "e.g. Wholesale Provisions Mart"
+                  }
                 />
               </div>
 
               <div>
-                <label className="label">Godown / Rack Location</label>
+                <label className="label">
+                  {config.id === "agro"
+                    ? "Godown / Warehouse Section"
+                    : config.id === "pharma"
+                    ? "Pharmacy Rack / Shelf / Cold Storage"
+                    : "Aisle / Counter / Shelf Number"}
+                </label>
                 <input
                   className="input"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="e.g. Godown 1, Shelf B"
+                  placeholder={
+                    config.id === "agro"
+                      ? "e.g. Godown 1, Shed B"
+                      : config.id === "pharma"
+                      ? "e.g. Rack 3, Shelf A, Refrigerator"
+                      : "e.g. Aisle 2, Top Shelf"
+                  }
                 />
               </div>
             </div>
 
             <div>
-              <label className="label">Usage Notes / Target Crops / Dosage</label>
+              <label className="label">
+                {config.id === "agro"
+                  ? "Usage Instructions / Target Crops / Spray Dosage"
+                  : config.id === "pharma"
+                  ? "Dosage Instructions / Special Storage Precautions"
+                  : "Product Notes / Storage Location"}
+              </label>
               <textarea
                 className="input"
                 rows={2}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder={config.id === "agro" ? "e.g. 2ml per litre of water. Recommended for Paddy, Cotton." : "Additional notes"}
+                placeholder={
+                  config.id === "agro"
+                    ? "e.g. 2ml per litre of water. Recommended for Paddy, Cotton, Chilli."
+                    : config.id === "pharma"
+                    ? "e.g. Store below 25°C in dry place. As directed by Physician."
+                    : "e.g. Keep in cool & dry place away from moisture. Top shelf."
+                }
               />
             </div>
           </div>

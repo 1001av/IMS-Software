@@ -844,7 +844,7 @@ export function BillingPage() {
                 type="text"
                 value={historySearch}
                 onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Search by invoice #, customer name, phone..."
+                placeholder={`Search by invoice #, customer, phone, or ${config.itemLabel.toLowerCase()} name...`}
                 className="input py-1.5 text-xs w-full"
               />
             </div>
@@ -897,7 +897,7 @@ export function BillingPage() {
                     <tr className="bg-slate-50 border-b border-line/80 text-slate-600 font-semibold">
                       <th className="py-3 px-4">Invoice #</th>
                       <th className="py-3 px-4">Date & Time</th>
-                      <th className="py-3 px-4">Customer</th>
+                      <th className="py-3 px-4">Customer & Items</th>
                       <th className="py-3 px-4">Payment</th>
                       <th className="py-3 px-4 text-right">Amount</th>
                       <th className="py-3 px-4 text-center">Status</th>
@@ -931,6 +931,15 @@ export function BillingPage() {
                             <div className="font-medium text-slate-900">{inv.customer_name || "Walk-in"}</div>
                             {inv.customer_phone && (
                               <div className="text-[10px] text-slate-400 font-mono">{inv.customer_phone}</div>
+                            )}
+                            {inv.items_summary && (
+                              <div
+                                className="text-[10px] text-slate-500 truncate max-w-[220px] mt-0.5 flex items-center gap-1"
+                                title={inv.items_summary}
+                              >
+                                <span className="text-slate-400">📦</span>
+                                <span>{inv.items_summary}</span>
+                              </div>
                             )}
                           </td>
                           <td className="py-3 px-4">

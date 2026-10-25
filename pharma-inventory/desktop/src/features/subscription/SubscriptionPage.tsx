@@ -171,7 +171,7 @@ export function SubscriptionPage() {
             <div>
               <div className="font-bold text-rose-900">Your subscription has expired</div>
               <div className="mt-0.5 text-rose-700 leading-relaxed">
-                All your pharmacy medicines, inventory movements, and backup capabilities remain completely operational and unblocked. Paste a new renewal key below to renew your plan.
+                All your previous invoices, customer records, and inventory history remain 100% safe and intact. New billing and stock edits are locked until renewed. Paste a renewal key below to restore full access.
               </div>
             </div>
           </div>

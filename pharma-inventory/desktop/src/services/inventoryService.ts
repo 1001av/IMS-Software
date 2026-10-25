@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { execute, query, transaction } from "@/database/client";
+import { assertSubscriptionActive } from "@/services/subscriptionService";
 import type { Medicine, NewMedicineInput } from "@/types/domain";
 
 const nowIso = () => new Date().toISOString();
@@ -7,6 +8,7 @@ const nowIso = () => new Date().toISOString();
 /** Adds a medicine. Only name, quantity, and purchase price are required —
  *  everything else the pharmacy owner can skip and fill in later. */
 export async function addMedicine(pharmacyId: string, input: NewMedicineInput): Promise<Medicine> {
+  await assertSubscriptionActive();
   const id = uuidv4();
   const ts = nowIso();
 
@@ -55,6 +57,7 @@ export async function addMedicine(pharmacyId: string, input: NewMedicineInput): 
 }
 
 export async function updateMedicine(id: string, changes: Partial<NewMedicineInput>): Promise<void> {
+  await assertSubscriptionActive();
   const fields = Object.keys(changes);
   if (fields.length === 0) return;
   const setClause = fields.map((f) => `${f} = ?`).join(", ");
@@ -68,11 +71,13 @@ export async function updateMedicine(id: string, changes: Partial<NewMedicineInp
 
 /** Soft delete — never physically removes a row, so accidental deletes are recoverable. */
 export async function deleteMedicine(id: string): Promise<void> {
+  await assertSubscriptionActive();
   await execute("UPDATE medicines SET is_deleted = 1, updated_at = ? WHERE id = ?", [nowIso(), id]);
 }
 
 /** Direct stock adjustment (product brief section 22 — simple set, not a full ledger). */
 export async function adjustStock(id: string, newQuantity: number, reason: string): Promise<void> {
+  await assertSubscriptionActive();
   const [medicine] = await query<Medicine>("SELECT * FROM medicines WHERE id = ?", [id]);
   if (!medicine) throw new Error("Medicine not found");
 

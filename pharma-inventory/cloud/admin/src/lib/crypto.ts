@@ -97,3 +97,14 @@ export function verifyAndParseSubscriptionKey(key: string): SubscriptionPayload 
     throw new Error(`Failed to decode subscription key: ${err?.message || "Unknown error"}`);
   }
 }
+
+/** Hashes a customer account password with HMAC-SHA256 */
+export function hashPassword(password: string): string {
+  const salt = "IMS_AUTH_SALT_2026";
+  return crypto.createHmac("sha256", salt).update(password).digest("hex");
+}
+
+/** Verifies password against stored hash */
+export function verifyPassword(password: string, hash: string): boolean {
+  return hashPassword(password) === hash;
+}

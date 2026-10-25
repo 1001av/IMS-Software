@@ -5,6 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import type { BackupRecord, DatabaseInfo } from "@/types/domain";
 
 export async function getDatabaseInfo(): Promise<DatabaseInfo> {
+  if (typeof window !== "undefined" && !Boolean((window as any).__TAURI_INTERNALS__)) {
+    return { path: "pharma.db (Browser Emulation)", exists: true, size_bytes: 40960 };
+  }
   try {
     return await invoke<DatabaseInfo>("get_database_info");
   } catch (e: any) {

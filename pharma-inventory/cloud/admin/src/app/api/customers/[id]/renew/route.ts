@@ -29,10 +29,13 @@ export async function POST(
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const currentExpiry = new Date(customer.expiryDate);
-    currentExpiry.setHours(0, 0, 0, 0);
+    const currentExpiry = customer.expiryDate ? new Date(customer.expiryDate) : null;
+    const isValidExpiry = currentExpiry && !isNaN(currentExpiry.getTime());
+    if (isValidExpiry) {
+      currentExpiry.setHours(0, 0, 0, 0);
+    }
 
-    const renewalStart = currentExpiry > today ? currentExpiry : today;
+    const renewalStart = (isValidExpiry && currentExpiry > today) ? currentExpiry : today;
     const startDateStr = renewalStart.toISOString().slice(0, 10);
 
     let newExpiryDate = "";

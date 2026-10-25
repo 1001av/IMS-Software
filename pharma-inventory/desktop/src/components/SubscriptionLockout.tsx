@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { activateSubscriptionWithKey } from "@/services/subscriptionService";
+import { createLocalBackup } from "@/services/backupService";
 import { useBusinessConfig } from "@/utils/businessConfig";
 import type { Subscription } from "@/types/domain";
 
@@ -12,6 +13,7 @@ export function SubscriptionLockout({ subscription, onUnlocked }: Props) {
   const config = useBusinessConfig();
   const [keyInput, setKeyInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [backingUp, setBackingUp] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -42,11 +44,31 @@ export function SubscriptionLockout({ subscription, onUnlocked }: Props) {
     }
   }
 
+  async function handleExportBackup() {
+    setBackingUp(true);
+    setError(null);
+    try {
+      const res = await createLocalBackup();
+      if (res) {
+        setSuccess(`✓ Backup saved safely to: ${res.filePath}`);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to export backup.");
+    } finally {
+      setBackingUp(false);
+    }
+  }
+
   const formattedExpiry = new Date(subscription.expiry_date).toLocaleDateString("en-IN", {
     day: "numeric",
     month: "long",
     year: "numeric",
   });
+
+  function getRenewalWhatsAppUrl() {
+    const message = `Hello Admin,\n\nMy subscription for *${subscription.customer_name || config.appName}* (${config.badgeText}) has expired.\n\n📅 *Expired On:* ${formattedExpiry}\n\nPlease issue an offline renewal key so I can unlock and continue billing. Thank you!`;
+    return `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+  }
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
@@ -65,13 +87,24 @@ export function SubscriptionLockout({ subscription, onUnlocked }: Props) {
         {/* Body Content */}
         <div className="p-6 space-y-5">
           {/* Data Safety Guarantee Alert */}
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-1">
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs space-y-2">
             <div className="font-extrabold flex items-center gap-1.5 text-emerald-800 text-sm">
               <span>🛡️</span> 100% Local Data Guarantee
             </div>
             <p className="leading-relaxed text-emerald-700">
-              All your customer records, inventory stock, billing invoices, and reports remain <strong>100% safe and intact</strong> in your local database. No data has been or will ever be deleted. Entering a renewal key restores instant full access.
+              All your customer records, inventory stock, billing invoices, and reports remain <strong>100% safe and intact</strong> in your local database. No data has been or will ever be deleted. Invoicing and stock edits are locked until renewed.
             </p>
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={handleExportBackup}
+                disabled={backingUp}
+                className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs inline-flex items-center gap-1.5 shadow-2xs transition-all cursor-pointer disabled:opacity-50"
+              >
+                <span>📥</span>
+                <span>{backingUp ? "Exporting Backup..." : "Export Data Safety Backup (.db)"}</span>
+              </button>
+            </div>
           </div>
 
           {/* Key Input Form */}
@@ -124,11 +157,16 @@ export function SubscriptionLockout({ subscription, onUnlocked }: Props) {
           </form>
 
           {/* Help & Contact Support */}
-          <div className="pt-4 border-t border-slate-200 text-center text-xs text-slate-500 space-y-1">
+          <div className="pt-4 border-t border-slate-200 text-center text-xs text-slate-500 space-y-2">
             <div>Don't have a renewal key yet?</div>
-            <div className="font-semibold text-slate-700">
-              Contact your software distributor or administrator to get your instant offline renewal key.
-            </div>
+            <a
+              href={getRenewalWhatsAppUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-xs shadow-xs transition-all cursor-pointer"
+            >
+              <span>💬 Request Renewal Code via WhatsApp</span>
+            </a>
           </div>
         </div>
       </div>

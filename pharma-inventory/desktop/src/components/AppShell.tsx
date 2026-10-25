@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import clsx from "clsx";
-import { getCurrentWindow } from "@tauri-apps/api/window";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { getCurrentSubscription } from "@/services/subscriptionService";
 import { useBusinessConfig } from "@/utils/businessConfig";
 import { SubscriptionLockout } from "@/components/SubscriptionLockout";
+import { checkForAppUpdates } from "@/services/updateService";
+import { syncWindowTitle } from "@/utils/windowTitle";
 import type { Subscription } from "@/types/domain";
 
 const navItems = [
@@ -79,6 +80,7 @@ const navItems = [
 /** The persistent shell around every screen once a user is logged in. */
 export function AppShell() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [updateAvailable, setUpdateAvailable] = useState<string | null>(null);
   const location = useLocation();
   const config = useBusinessConfig();
 
@@ -86,18 +88,36 @@ export function AppShell() {
     getCurrentSubscription().then(setSubscription).catch(console.error);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (typeof window !== "undefined" && navigator.onLine) {
+      checkForAppUpdates().then((res) => {
+        if (res.available && res.version) {
+          const isDownloaded = localStorage.getItem(`downloaded_update_${res.version}`);
+          const isDismissed = localStorage.getItem(`dismissed_update_${res.version}`);
+          if (!isDownloaded && !isDismissed) {
+            setUpdateAvailable(res.version);
+          }
+        }
+      }).catch(() => {});
+    }
+
+    const handleUpdateDownloaded = (e: any) => {
+      const ver = e.detail?.version;
+      if (ver) {
+        localStorage.setItem(`downloaded_update_${ver}`, "true");
+      }
+      setUpdateAvailable(null);
+    };
+
+    window.addEventListener("ims-update-downloaded", handleUpdateDownloaded);
+    return () => {
+      window.removeEventListener("ims-update-downloaded", handleUpdateDownloaded);
+    };
+  }, []);
+
   // Synchronize OS Window Title and Document Title dynamically with active business profile
   useEffect(() => {
-    const title = `${config.appName} — ${config.tagline}`;
-    document.title = title;
-    try {
-      const win = getCurrentWindow();
-      if (win && typeof win.setTitle === "function") {
-        win.setTitle(title).catch(() => {});
-      }
-    } catch {
-      // Browser environment fallback
-    }
+    syncWindowTitle(`${config.appName} — ${config.tagline}`);
   }, [config]);
 
   return (
@@ -106,26 +126,10 @@ export function AppShell() {
       <aside className="w-60 shrink-0 bg-white border-r border-line/80 flex flex-col shadow-subtle z-20 print:hidden">
         {/* Brand Header */}
         <div className="flex items-center gap-3 px-5 py-5 border-b border-line/50">
-          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-brand/20 bg-white">
-            {config.id === "agro" ? (
-              <img src="/app-icon.png" alt="Agro Kendra Logo" className="w-full h-full object-contain" />
-            ) : config.id === "pharma" ? (
-              <div className="w-full h-full bg-teal-600 text-white flex items-center justify-center font-bold">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" strokeWidth="2.4" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-              </div>
-            ) : config.id === "kirana" ? (
-              <div className="w-full h-full bg-blue-600 text-white flex items-center justify-center font-bold">
-                <span className="text-xl">🛒</span>
-              </div>
-            ) : (
-              <div className="w-full h-full bg-indigo-600 text-white flex items-center justify-center font-bold">
-                <span className="text-xl">🏢</span>
-              </div>
-            )}
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center shrink-0 shadow-sm border border-slate-200 bg-white p-1">
+            <img src="/yoogle-icon.png" alt="Yoogle IMS" className="w-full h-full object-contain" />
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="text-sm font-bold text-ink tracking-tight truncate">{config.appName}</div>
             <div className="text-[10px] font-semibold text-brand tracking-wide uppercase truncate">{config.badgeText}</div>
           </div>
@@ -153,14 +157,58 @@ export function AppShell() {
           ))}
         </nav>
 
-        {/* Bottom Ambient Status */}
-        <div className="px-4 py-3.5 border-t border-line/50 bg-slate-50/50">
+        {/* Bottom Ambient Status & Developer Branding */}
+        <div className="px-4 py-3.5 border-t border-line/50 bg-slate-50/70 space-y-2.5">
           <OfflineIndicator />
+          <div className="pt-2 border-t border-slate-200/70 text-[10px] text-slate-500 leading-tight space-y-1">
+            <div className="font-semibold text-slate-700 flex items-center justify-between">
+              <span>Developed by-</span>
+              <span className="text-brand font-bold">Yoogle.Com</span>
+            </div>
+            <div className="text-slate-500 flex items-center justify-between">
+              <span>Developer-</span>
+              <span className="font-medium text-slate-700">Yugal Verma, 6263777500</span>
+            </div>
+            <div className="text-[9px] text-slate-400 truncate">
+              Gmail- pacs.automation.yoogle@gmail.com
+            </div>
+            <div className="text-[9px] text-slate-400">
+              © 2026 Yoogle.Com. All rights reserved.
+            </div>
+          </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden print:overflow-visible print:h-auto relative">
+        {/* Update Notification Banner */}
+        {updateAvailable && (
+          <div className="bg-emerald-600 text-white px-6 py-2 text-xs flex items-center justify-between shrink-0 shadow-sm print:hidden animate-in fade-in">
+            <div className="flex items-center gap-2">
+              <span className="text-sm">🚀</span>
+              <span>
+                <strong>Update Available:</strong> A new version (v{updateAvailable}) of {config.appName} is ready to install.
+              </span>
+            </div>
+            <div className="flex items-center gap-4 shrink-0 ml-4">
+              <Link to="/settings" className="text-xs font-bold underline hover:opacity-80">
+                View & Install Update →
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.setItem(`dismissed_update_${updateAvailable}`, "true");
+                  setUpdateAvailable(null);
+                }}
+                className="text-white hover:text-emerald-200 text-sm font-bold px-1.5 py-0.5 rounded cursor-pointer leading-none"
+                title="Dismiss update notice"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Blocking Lockout Modal when Expired (Per Phase 2 Requirements) */}
         {subscription?.status === "expired" && (
           <SubscriptionLockout

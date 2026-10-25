@@ -1,6 +1,10 @@
 import { execute, query } from "@/database/client";
 import { verifyAndParseSubscriptionKey } from "@/utils/subscriptionCrypto";
-import { setActiveBusinessType, type BusinessType } from "@/utils/businessConfig";
+import {
+  BUSINESS_CONFIGS,
+  TARGET_PRODUCT_TYPE,
+  type BusinessType,
+} from "@/utils/businessConfig";
 import type { Subscription, SubscriptionStatus } from "@/types/domain";
 
 function getStatusFromExpiry(expiryDate: string): SubscriptionStatus {
@@ -23,47 +27,52 @@ function getStatusFromExpiry(expiryDate: string): SubscriptionStatus {
   return "active";
 }
 
-export async function getCurrentSubscription(): Promise<Subscription> {
+/** Guard against user turning back system clock to bypass expiration */
+async function verifyClockIntegrity(): Promise<boolean> {
+  try {
+    const rows = await query<{ value: string }>(
+      "SELECT value FROM settings WHERE key = 'last_active_time' LIMIT 1"
+    );
+    const now = new Date();
+    if (rows.length > 0 && rows[0].value) {
+      const lastActive = new Date(rows[0].value);
+      // If system clock is set back more than 1 hour into the past compared to last run
+      if (!isNaN(lastActive.getTime()) && lastActive.getTime() > now.getTime() + 1000 * 60 * 60) {
+        console.warn("Clock tampering detected: System clock is set behind last recorded operation.");
+        return false;
+      }
+    }
+    await execute(
+      `INSERT INTO settings (key, value) VALUES ('last_active_time', ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+      [now.toISOString()]
+    );
+    return true;
+  } catch (err) {
+    console.warn("Clock integrity check note:", err);
+    return true;
+  }
+}
+
+export async function getCurrentSubscription(): Promise<Subscription | null> {
   const rows = await query<Subscription>(
     "SELECT * FROM subscriptions WHERE id = 'current' LIMIT 1"
   );
 
   if (rows.length === 0) {
-    // Return a default initial trial subscription if not yet initialized
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const nextYear = new Date();
-    nextYear.setFullYear(nextYear.getFullYear() + 1);
-    const nextYearStr = nextYear.toISOString().slice(0, 10);
-
-    const defaultSub: Subscription = {
-      id: "current",
-      customer_name: "Local Store",
-      plan_name: "Standard Plan",
-      price_paise: 0,
-      start_date: todayStr,
-      expiry_date: nextYearStr,
-      status: "active",
-      subscription_key: null,
-    };
-
-    await execute(
-      `INSERT OR IGNORE INTO subscriptions (id, customer_name, plan_name, price_paise, start_date, expiry_date, status)
-       VALUES ('current', ?, ?, ?, ?, ?, ?)`,
-      [
-        defaultSub.customer_name,
-        defaultSub.plan_name,
-        defaultSub.price_paise,
-        defaultSub.start_date,
-        defaultSub.expiry_date,
-        defaultSub.status,
-      ]
-    );
-
-    return defaultSub;
+    return null;
   }
 
   const sub = rows[0];
-  const computedStatus = getStatusFromExpiry(sub.expiry_date);
+
+  // If there is no valid key attached, the software has not been activated by admin
+  if (!sub.subscription_key || sub.subscription_key.trim() === "") {
+    sub.status = "unactivated";
+    return sub;
+  }
+
+  const clockOk = await verifyClockIntegrity();
+  const computedStatus = clockOk ? getStatusFromExpiry(sub.expiry_date) : "expired";
 
   // Update status in db if changed
   if (computedStatus !== sub.status) {
@@ -77,9 +86,42 @@ export async function getCurrentSubscription(): Promise<Subscription> {
   return sub;
 }
 
-export async function activateSubscriptionWithKey(key: string): Promise<Subscription> {
+/** Service-layer write guard: prevents creating invoices or changing inventory when expired */
+export async function assertSubscriptionActive(): Promise<void> {
+  const sub = await getCurrentSubscription();
+  if (!sub || sub.status === "expired" || sub.status === "unactivated") {
+    throw new Error(
+      "Your software license is expired or unactivated. Billing and stock writes are locked. Your historical data remains 100% safe."
+    );
+  }
+}
+
+export async function activateSubscriptionWithKey(
+  key: string,
+  expectedVertical?: BusinessType
+): Promise<Subscription> {
   const payload = await verifyAndParseSubscriptionKey(key);
+  const targetVertical = expectedVertical || TARGET_PRODUCT_TYPE;
+
+  // Strict Product Vertical Validation:
+  // A Kirana Store key CANNOT activate an Agro Kendra installation!
+  if (payload.businessType && payload.businessType !== targetVertical) {
+    const issuedFor =
+      BUSINESS_CONFIGS[payload.businessType as BusinessType]?.appName ||
+      payload.businessType.toUpperCase();
+    const currentProduct =
+      BUSINESS_CONFIGS[targetVertical]?.appName || targetVertical.toUpperCase();
+    throw new Error(
+      `Product Mismatch: This key was issued for "${issuedFor}". It cannot be used to activate "${currentProduct}". Please request a valid key from your software administrator.`
+    );
+  }
+
   const status = getStatusFromExpiry(payload.expiryDate);
+  if (status === "expired") {
+    throw new Error(
+      `Expired License: This subscription key expired on ${payload.expiryDate}. Please enter an active key.`
+    );
+  }
 
   await execute(
     `INSERT INTO subscriptions (
@@ -105,16 +147,6 @@ export async function activateSubscriptionWithKey(key: string): Promise<Subscrip
     ]
   );
 
-  // If businessType was packaged in the key, update the business vertical
-  if (payload.businessType && ["agro", "pharma", "kirana", "general"].includes(payload.businessType)) {
-    await execute(
-      `INSERT INTO settings (key, value) VALUES ('business_type', ?)
-       ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
-      [payload.businessType]
-    );
-    setActiveBusinessType(payload.businessType as BusinessType);
-  }
-
   // If storeName was packaged in the key, update the pharmacy record
   if (payload.storeName) {
     await execute(
@@ -124,5 +156,9 @@ export async function activateSubscriptionWithKey(key: string): Promise<Subscrip
     localStorage.setItem("pharmacy_name", payload.storeName);
   }
 
-  return getCurrentSubscription();
+  const updated = await getCurrentSubscription();
+  if (!updated) {
+    throw new Error("Failed to load activated subscription.");
+  }
+  return updated;
 }
