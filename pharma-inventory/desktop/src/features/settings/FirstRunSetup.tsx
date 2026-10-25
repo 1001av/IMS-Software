@@ -866,7 +866,7 @@ export function FirstRunSetup({
                   rows={3}
                   value={keyInput}
                   onChange={(e) => setKeyInput(e.target.value)}
-                  placeholder="Paste your offline key here (e.g. PHARMA-eyJ...)"
+                  placeholder={`Paste your offline key here (e.g. ${activeConfig.id === "agro" ? "AGRO" : activeConfig.id === "kirana" ? "KIRANA" : "PHARMA"}-eyJ...)`}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs text-slate-900 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden"
                 />
               </div>

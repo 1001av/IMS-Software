@@ -62,11 +62,26 @@ async function computeDigest(data: string): Promise<string> {
   return sigArray.map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
 }
 
+export function getPrefixForBusinessType(businessType?: string, explicitPrefix?: string): string {
+  if (explicitPrefix) return explicitPrefix.toUpperCase();
+  switch (businessType?.toLowerCase()) {
+    case "agro":
+      return "AGRO";
+    case "kirana":
+      return "KIRANA";
+    case "pharma":
+      return "PHARMA";
+    default:
+      return "IMS";
+  }
+}
+
 /** Generates a formatted offline subscription key string from payload */
 export async function generateSubscriptionKey(
   payload: SubscriptionPayload,
-  prefix: "PHARMA" | "IMS" = "PHARMA"
+  explicitPrefix?: string
 ): Promise<string> {
+  const prefix = getPrefixForBusinessType(payload.businessType, explicitPrefix);
   const normalized: SubscriptionPayload = {
     customerName: payload.customerName.trim(),
     storeName: payload.storeName ? payload.storeName.trim() : undefined,
@@ -90,9 +105,12 @@ export async function verifyAndParseSubscriptionKey(key: string): Promise<Subscr
   const trimmed = key.trim();
   const parts = trimmed.split("-");
 
-  const validPrefixes = ["PHARMA", "IMS", "AGRO", "KIRANA"];
-  if (parts.length < 3 || !validPrefixes.includes(parts[0])) {
-    throw new Error("Invalid subscription key format. Expected PHARMA-xxxx-xxxx or IMS-xxxx-xxxx.");
+  const validPrefixes = ["AGRO", "KIRANA", "PHARMA", "IMS", "GENERAL"];
+  const prefix = parts[0]?.toUpperCase();
+  if (parts.length < 3 || !validPrefixes.includes(prefix)) {
+    throw new Error(
+      "Invalid subscription key format. Expected AGRO-xxxx-xxxx, KIRANA-xxxx-xxxx, PHARMA-xxxx-xxxx, or IMS-xxxx-xxxx."
+    );
   }
 
   // The last part is signature, middle part(s) is the payload

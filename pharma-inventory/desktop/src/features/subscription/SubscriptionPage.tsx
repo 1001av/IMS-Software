@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
 import { getCurrentSubscription, activateSubscriptionWithKey } from "@/services/subscriptionService";
 import { formatPaise } from "@/utils/currency";
+import { useBusinessConfig } from "@/utils/businessConfig";
 import type { Subscription } from "@/types/domain";
 
 export function SubscriptionPage() {
+  const config = useBusinessConfig();
+  const keyPrefix = config.id === "agro" ? "AGRO" : config.id === "kirana" ? "KIRANA" : "PHARMA";
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [keyInput, setKeyInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -86,7 +89,7 @@ export function SubscriptionPage() {
       <div>
         <h1 className="text-2xl font-extrabold text-ink tracking-tight">Subscription & Plan</h1>
         <p className="text-sm text-subink mt-0.5">
-          Manage your pharmacy's offline license and subscription. All operations remain 100% offline.
+          Manage your store's offline license and subscription. All operations remain 100% offline.
         </p>
       </div>
 
@@ -205,7 +208,7 @@ export function SubscriptionPage() {
             id="sub-key"
             className="input font-mono text-xs leading-relaxed"
             rows={3}
-            placeholder="Paste offline key starting with PHARMA-..."
+            placeholder={`Paste offline key starting with ${keyPrefix}-...`}
             value={keyInput}
             onChange={(e) => setKeyInput(e.target.value)}
           />

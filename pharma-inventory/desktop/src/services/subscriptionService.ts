@@ -103,8 +103,22 @@ export async function activateSubscriptionWithKey(
   const payload = await verifyAndParseSubscriptionKey(key);
   const targetVertical = expectedVertical || TARGET_PRODUCT_TYPE;
 
-  // Strict Product Vertical Validation:
-  // A Kirana Store key CANNOT activate an Agro Kendra installation!
+  // Strict Product Vertical & Key Prefix Validation:
+  // An AGRO key cannot activate Kirana or Pharma, and vice-versa!
+  const keyPrefix = key.trim().split("-")[0]?.toUpperCase();
+  const verticalToPrefix: Record<string, string> = {
+    agro: "AGRO",
+    kirana: "KIRANA",
+    pharma: "PHARMA",
+  };
+  const expectedPrefix = verticalToPrefix[targetVertical];
+  if (expectedPrefix && keyPrefix && keyPrefix !== expectedPrefix && keyPrefix !== "IMS") {
+    const currentProduct = BUSINESS_CONFIGS[targetVertical]?.appName || targetVertical.toUpperCase();
+    throw new Error(
+      `Product Mismatch: This key starts with "${keyPrefix}-" but this application is "${currentProduct}" (requires an ${expectedPrefix}- key). Please request an ${expectedPrefix} key from your administrator.`
+    );
+  }
+
   if (payload.businessType && payload.businessType !== targetVertical) {
     const issuedFor =
       BUSINESS_CONFIGS[payload.businessType as BusinessType]?.appName ||

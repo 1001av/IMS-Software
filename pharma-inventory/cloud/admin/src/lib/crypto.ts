@@ -38,14 +38,33 @@ function computeDigest(data: string): string {
     .slice(0, 32);
 }
 
+export function getPrefixForBusinessType(businessType?: string, explicitPrefix?: string): string {
+  if (explicitPrefix) return explicitPrefix.toUpperCase();
+  switch (businessType?.toLowerCase()) {
+    case "agro":
+      return "AGRO";
+    case "kirana":
+      return "KIRANA";
+    case "pharma":
+      return "PHARMA";
+    default:
+      return "IMS";
+  }
+}
+
 /**
  * Generates an offline cryptographic subscription key.
- * Compatible with desktop app HMAC-SHA256 offline verification.
+ * Automatically prefixes the key according to the product vertical:
+ * - Agro Kendra IMS: AGRO-xxxx-xxxx
+ * - Kirana Store IMS: KIRANA-xxxx-xxxx
+ * - Pharma IMS: PHARMA-xxxx-xxxx
+ * - General Retail: IMS-xxxx-xxxx
  */
 export function generateSubscriptionKey(
   payload: SubscriptionPayload,
-  prefix: "PHARMA" | "IMS" = "PHARMA"
+  explicitPrefix?: string
 ): string {
+  const prefix = getPrefixForBusinessType(payload.businessType, explicitPrefix);
   const normalized: SubscriptionPayload = {
     customerName: payload.customerName.trim(),
     storeName: payload.storeName ? payload.storeName.trim() : undefined,
@@ -71,9 +90,12 @@ export function verifyAndParseSubscriptionKey(key: string): SubscriptionPayload 
   const trimmed = key.trim();
   const parts = trimmed.split("-");
 
-  const validPrefixes = ["PHARMA", "IMS", "AGRO", "KIRANA"];
-  if (parts.length < 3 || !validPrefixes.includes(parts[0])) {
-    throw new Error("Invalid subscription key format. Expected PHARMA-xxxx-xxxx or IMS-xxxx-xxxx.");
+  const validPrefixes = ["AGRO", "KIRANA", "PHARMA", "IMS", "GENERAL"];
+  const prefix = parts[0]?.toUpperCase();
+  if (parts.length < 3 || !validPrefixes.includes(prefix)) {
+    throw new Error(
+      "Invalid subscription key format. Expected AGRO-xxxx-xxxx, KIRANA-xxxx-xxxx, PHARMA-xxxx-xxxx, or IMS-xxxx-xxxx."
+    );
   }
 
   const signature = parts[parts.length - 1];

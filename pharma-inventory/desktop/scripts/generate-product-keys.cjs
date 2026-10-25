@@ -13,14 +13,28 @@ function base64UrlEncode(str) {
 function computeDigest(data) {
   const hmac = crypto.createHmac("sha256", SECRET_SALT);
   hmac.update(data);
-  return hmac.digest("hex");
+  return hmac.digest("hex").slice(0, 32);
+}
+
+function getPrefixForBusinessType(businessType) {
+  switch (businessType?.toLowerCase()) {
+    case "agro":
+      return "AGRO";
+    case "kirana":
+      return "KIRANA";
+    case "pharma":
+      return "PHARMA";
+    default:
+      return "IMS";
+  }
 }
 
 function generateSubscriptionKey(payload) {
+  const prefix = getPrefixForBusinessType(payload.businessType);
   const payloadStr = JSON.stringify(payload);
   const encoded = base64UrlEncode(payloadStr);
   const signature = computeDigest(encoded);
-  return `PHARMA-${encoded}-${signature}`;
+  return `${prefix}-${encoded}-${signature}`;
 }
 
 const today = new Date().toISOString().slice(0, 10);

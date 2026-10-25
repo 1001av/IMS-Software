@@ -11,6 +11,7 @@ interface Props {
 
 export function SubscriptionLockout({ subscription, onUnlocked }: Props) {
   const config = useBusinessConfig();
+  const expectedPrefix = config.id === "agro" ? "AGRO" : config.id === "kirana" ? "KIRANA" : "PHARMA";
   const [keyInput, setKeyInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
@@ -118,7 +119,7 @@ export function SubscriptionLockout({ subscription, onUnlocked }: Props) {
                 required
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value)}
-                placeholder="Paste your offline renewal key here (e.g. PHARMA-... or IMS-...)"
+                placeholder={`Paste your offline renewal key here (e.g. ${expectedPrefix}-... or IMS-...)`}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs text-slate-900 placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-hidden transition-all"
               />
             </div>
